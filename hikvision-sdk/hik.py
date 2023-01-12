@@ -9,18 +9,15 @@ import os
 
 def callback(command: int, alarmer_pointer, alarminfo_pointer, buffer_length, user_pointer):
     dt = datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
+    hass_dt = datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%f%z")
     if (command == COMM_ALARM_V30):
         alarminfo_alarm_v30: NET_DVR_ALARMINFO_V30 = cast(
             alarminfo_pointer, POINTER(NET_DVR_ALARMINFO_V30)).contents
         if (alarminfo_alarm_v30.dwAlarmType == ALARMINFO_V30_ALARMTYPE_MOTION_DETECTION):
             os.system("echo " + dt +  " Motion detected, trying to update: " + sensor_name_motion)
-            data = json.dumps({'state': 'on'})
-            response = requests.post(url_states + sensor_name_motion, headers=headers, data=data)
-            os.system("echo Response: " + response.text)
+            set_state_attribute(sensor_name_motion, "on", "last_motion_ts", hass_dt)
             time.sleep(1)
-            data = json.dumps({'state': 'off'})
-            response = requests.post(url_states + sensor_name_motion, headers=headers, data=data)
-            os.system("echo Response: " + response.text)
+            set_state(sensor_name_motion, "off")
         else:
             os.system("echo " + dt +  " COMM_ALARM_V30, unhandled dwAlarmType: " + str(alarminfo_alarm_v30.dwAlarmType))
     elif(command == COMM_ALARM_VIDEO_INTERCOM):
@@ -29,42 +26,34 @@ def callback(command: int, alarmer_pointer, alarminfo_pointer, buffer_length, us
         if (alarminfo_alarm_video_intercom.byAlarmType == VIDEO_INTERCOM_ALARM_ALARMTYPE_DOORBELL_RINGING):
             try:
                 os.system("echo " + dt +  " Doorbell ringing, trying to update: " + sensor_name_callstatus)
-                data = json.dumps({'state': 'on'})
-                response = requests.post(url_states + sensor_name_callstatus, headers=headers, data=data)
-                os.system("echo Response: " + response.text)
+                set_state_attribute(sensor_name_callstatus, "on", "last_ring_ts", hass_dt)
                 time.sleep(1)
-                data = json.dumps({'state': 'off'})
-                response = requests.post(url_states + sensor_name_callstatus, headers=headers, data=data)
-                os.system("echo Response: " + response.text)
+                set_state(sensor_name_callstatus, "off")
             except:
                 os.system("echo " + dt +  " Sensor updating failed")
              
         elif (alarminfo_alarm_video_intercom.byAlarmType == VIDEO_INTERCOM_ALARM_ALARMTYPE_DISMISS_INCOMING_CALL):
             try:
                 os.system("echo " + dt +  " Call dimissed, trying to update: " + sensor_name_dimiss)
-                data = json.dumps({'state': 'on'})
-                response = requests.post(url_states + sensor_name_dimiss, headers=headers, data=data)
-                os.system("echo Response: " + response.text)
+                set_state_attribute(sensor_name_dimiss, "on", "last_dismiss_ts", hass_dt)
                 time.sleep(1)
-                data = json.dumps({'state': 'off'})
-                response = requests.post(url_states + sensor_name_dimiss, headers=headers, data=data)
-                os.system("echo Response: " + response.text)
+                set_state(sensor_name_dimiss, "off")
             except:
                 os.system("echo " + dt +  " Sensor updating failed")           
         elif (alarminfo_alarm_video_intercom.byAlarmType == VIDEO_INTERCOM_ALARM_ALARMTYPE_TAMPERING_ALARM):
             try:
                 os.system("echo " + dt +  " Tamper Alarm, trying to update: " + sensor_name_tamper)
-                data = json.dumps({'state': 'on'})
-                response = requests.post(url_states + sensor_name_tamper, headers=headers, data=data)
-                os.system("echo Response: " + response.text)
+                set_state_attribute(sensor_name_tamper, "on", "last_tamper_ts", hass_dt)
                 time.sleep(1)
-                data = json.dumps({'state': 'off'})
-                response = requests.post(url_states + sensor_name_tamper, headers=headers, data=data)
-                os.system("echo Response: " + response.text)
+                set_state(sensor_name_tamper, "off")
             except:
                 os.system("echo " + dt +  " Sensor updating failed")
         elif (alarminfo_alarm_video_intercom.byAlarmType == VIDEO_INTERCOM_ALARM_ALARMTYPE_DOOR_NOT_CLOSED):
-            os.system("echo " + dt +  " Door not closed")
+            os.system("echo " + dt +  " Door not closed, trying to update: " + sensor_name_door_open)
+            set_state_attribute(sensor_name_door_open, "on", "last_open_ts", hass_dt)
+            if (door_open_revert_status):
+                time.sleep(1)
+                set_state(sensor_name_door_open, "off")
         else:
             os.system("echo " + dt +  " COMM_ALARM_VIDEO_INTERCOM, unhandled byAlarmType: "+ str(alarminfo_alarm_video_intercom.byAlarmType))
     elif(command == COMM_UPLOAD_VIDEO_INTERCOM_EVENT):
@@ -77,13 +66,11 @@ def callback(command: int, alarmer_pointer, alarminfo_pointer, buffer_length, us
                 os.system("echo " + dt +  " Unlocked door LockID : " + str(alarminfo_upload_video_intercom_event.uEventInfo.struUnlockRecord.wLockID))
                 #os.system("echo Unlocked door Lockname : " + str(list(alarminfo_upload_video_intercom_event.uEventInfo.struUnlockRecord.byLockName)))
                 #os.system("echo Unlocked door UnlockType : " + str(alarminfo_upload_video_intercom_event.uEventInfo.struUnlockRecord.byUnlockType))
-                data = json.dumps({'state': 'on', 'attributes': {'Unlock': str(list(alarminfo_upload_video_intercom_event.uEventInfo.struUnlockRecord.byControlSrc)), 'DoorID' : str(alarminfo_upload_video_intercom_event.uEventInfo.struUnlockRecord.wLockID) }})
+                data = json.dumps({'state': 'on', 'attributes': {'Unlock': str(list(alarminfo_upload_video_intercom_event.uEventInfo.struUnlockRecord.byControlSrc)), 'DoorID' : str(alarminfo_upload_video_intercom_event.uEventInfo.struUnlockRecord.wLockID), 'last_unlock_ts': hass_dt }})
                 response = requests.post(url_states + sensor_name_door, headers=headers, data=data)
                 os.system("echo Response: " + response.text)
                 time.sleep(1)
-                data = json.dumps({'state': 'off', 'attributes': {'Unlock': str(list(alarminfo_upload_video_intercom_event.uEventInfo.struUnlockRecord.byControlSrc)), 'DoorID' : str(alarminfo_upload_video_intercom_event.uEventInfo.struUnlockRecord.wLockID) }})
-                response = requests.post(url_states + sensor_name_door, headers=headers, data=data)
-                os.system("echo Response: " + response.text)
+                set_state(sensor_name_door, 'off')
             except:
                 os.system("echo " + dt +  " Sensor updating failed")        
             os.system("echo " + dt +  " Unlocked by: " + str(list(alarminfo_upload_video_intercom_event.uEventInfo.struUnlockRecord.byControlSrc)))
@@ -99,7 +86,23 @@ def set_attribute(sensor_name, attribute, value):
     msg = json.loads(response.text)
     msg['attributes'][attribute] = value
     payload = json.dumps({'state':  msg['state'], 'attributes': msg['attributes']})
-    requests.post(url_states + sensor_name, headers=headers, data=payload)   
+    response = requests.post(url_states + sensor_name, headers=headers, data=payload)
+    os.system("echo Response: " + response.text)    
+
+def set_state_attribute(sensor_name, state_val, attribute, value):
+    response = requests.get(url_states + sensor_name, headers=headers)
+    msg = json.loads(response.text)
+    msg['attributes'][attribute] = value
+    payload = json.dumps({'state':  state_val, 'attributes': msg['attributes']})
+    response = requests.post(url_states + sensor_name, headers=headers, data=payload)
+    os.system("echo Response: " + response.text)    
+
+def set_state(sensor_name, state_val):
+    response = requests.get(url_states + sensor_name, headers=headers)
+    msg = json.loads(response.text)
+    payload = json.dumps({'state':  state_val, 'attributes': msg['attributes']})
+    response = requests.post(url_states + sensor_name, headers=headers, data=payload)
+    os.system("echo Response: " + response.text)    
 
 dt = datetime.now().strftime("%m/%d/%Y, %H:%M:%S")    
 os.system("echo " + dt +  " Hikvision SDK Add-on started! Listening for events...")  
@@ -123,6 +126,8 @@ sensor_name_callstatus = "sensor."  + config["sensor_callstatus"]
 sensor_name_motion = "sensor."  + config["sensor_motion"]
 sensor_name_tamper = "sensor."  + config["sensor_tamper"]
 sensor_name_dimiss = "sensor."  + config["sensor_dismiss"]
+sensor_name_door_open = "sensor."  + config["sensor_door_open"]
+door_open_revert_status = config["door_open_revert_status"]
    
 HCNetSDK.NET_DVR_Init()
 HCNetSDK.NET_DVR_SetValidIP(0, True)
@@ -272,7 +277,7 @@ for line in sys.stdin:
     elif "unlock2" in line:
         os.system("echo Trying to unlock door 2... Stdin message: " + str(line))
         unlock_door(1)
-    # Callsignal keywords : "request,cancle,answer,reject,bellTimeout,hangUp,deviceOnCall"    
+    # Callsignal keywords : "request,cancel,answer,reject,bellTimeout,hangUp,deviceOnCall"    
     elif "reject" in line:
         os.system("echo Trying reject the call... Stdin message: " + str(line))
         callsignal("reject")
