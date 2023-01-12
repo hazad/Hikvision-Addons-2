@@ -21,7 +21,8 @@
     "sensor_callstatus" : "hikvision_callstatus",
     "sensor_motion" : "hikvision_motion",
     "sensor_tamper" : "hikvision_tamper",	 
-    "sensor_dismiss" : "hikvision_dismiss"	
+    "sensor_dismiss" : "duplex_door_dismiss",	
+    "sensor_door_open" : "duplex_door_open"	
   },
   "schema":
   {
@@ -33,6 +34,7 @@
     "sensor_callstatus" : "str",
     "sensor_motion" : "str",
     "sensor_tamper" : "str",
-    "sensor_dismiss" : "str"		
+    "sensor_dismiss" : "str",
+    "sensor_door_open" : "str"
    }
 }
